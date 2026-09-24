@@ -1,0 +1,13 @@
+{
+  "name": "formaia-backend",
+  "version": "0.1.0",
+  "dependencies": [
+    "boost-asio",
+    "boost-beast",
+    "boost-uuid",
+    "openssl",
+    "nlohmann-json",
+    "mysql-connector-cpp",
+    "libsodium"
+  ]
+}

@@ -54,8 +54,8 @@ CREATE TABLE usuario (
 CREATE TABLE perfil_fisico (
   usuario_id       CHAR(36)      NOT NULL,
   sexo             ENUM('femenino','masculino','prefiero_no_decir') NULL,
-  estatura_cm      VARBINARY(32) NULL COMMENT 'Cifrado en la app; valor original SMALLINT 100-250',
-  peso_kg          VARBINARY(32) NULL COMMENT 'Cifrado en la app; valor original DECIMAL(5,2) > 0',
+  estatura_cm      VARBINARY(64) NULL COMMENT 'Cifrado en la app; valor original SMALLINT 100-250',
+  peso_kg          VARBINARY(64) NULL COMMENT 'Cifrado en la app; valor original DECIMAL(5,2) > 0',
   nivel            ENUM('principiante','intermedio','avanzado') NOT NULL DEFAULT 'principiante',
   dias_semana      TINYINT       NOT NULL DEFAULT 3,
   minutos_sesion   SMALLINT      NOT NULL DEFAULT 30,
@@ -155,7 +155,7 @@ CREATE TABLE rutina (
   KEY ix_rutina_usuario (usuario_id),
   UNIQUE KEY uq_rutina_activa_por_usuario (usuario_si_activa),
   CONSTRAINT fk_rutina_usuario FOREIGN KEY (usuario_id)
-    REFERENCES usuario (id) ON DELETE CASCADE,
+    REFERENCES usuario (id),
   CONSTRAINT fk_rutina_solicitud FOREIGN KEY (solicitud_id)
     REFERENCES solicitud_ia (id) ON DELETE SET NULL
 ) ENGINE=InnoDB;

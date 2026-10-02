@@ -19,22 +19,23 @@ struct PerfilFisico {
 
     static std::vector<orm::Column<PerfilFisico>> columnas() {
         using C = orm::Column<PerfilFisico>;
+        
         return {
             C{"usuario_id", true,
               [](const PerfilFisico& p) { return mysqlx::Value(p.usuario_id); },
-              [](PerfilFisico& p, const mysqlx::Value& v) { p.usuario_id = v.get<std::string>(); }},
+              [](PerfilFisico& p, const mysqlx::Value& v) { p.usuario_id = formaia::orm::safe_get_string(v); }},
             C{"sexo", false,
               [](const PerfilFisico& p) { return mysqlx::Value(p.sexo); },
-              [](PerfilFisico& p, const mysqlx::Value& v) { p.sexo = v.get<std::string>(); }},
+              [](PerfilFisico& p, const mysqlx::Value& v) { p.sexo = formaia::orm::safe_get_string(v); }},
             C{"estatura_cm", false,
               [](const PerfilFisico& p) { return mysqlx::Value(p.estatura_cm_cifrada_b64); },
-              [](PerfilFisico& p, const mysqlx::Value& v) { p.estatura_cm_cifrada_b64 = v.get<std::string>(); }},
+              [](PerfilFisico& p, const mysqlx::Value& v) { p.estatura_cm_cifrada_b64 = formaia::orm::safe_get_string(v); }},
             C{"peso_kg", false,
               [](const PerfilFisico& p) { return mysqlx::Value(p.peso_kg_cifrada_b64); },
-              [](PerfilFisico& p, const mysqlx::Value& v) { p.peso_kg_cifrada_b64 = v.get<std::string>(); }},
+              [](PerfilFisico& p, const mysqlx::Value& v) { p.peso_kg_cifrada_b64 = formaia::orm::safe_get_string(v); }},
             C{"nivel", false,
               [](const PerfilFisico& p) { return mysqlx::Value(p.nivel); },
-              [](PerfilFisico& p, const mysqlx::Value& v) { p.nivel = v.get<std::string>(); }},
+              [](PerfilFisico& p, const mysqlx::Value& v) { p.nivel = formaia::orm::safe_get_string(v); }},
             C{"dias_semana", false,
               [](const PerfilFisico& p) { return mysqlx::Value(p.dias_semana); },
               [](PerfilFisico& p, const mysqlx::Value& v) { p.dias_semana = (int)v.get<int64_t>(); }},
@@ -43,7 +44,7 @@ struct PerfilFisico {
               [](PerfilFisico& p, const mysqlx::Value& v) { p.minutos_sesion = (int)v.get<int64_t>(); }},
             C{"equipamiento", false,
               [](const PerfilFisico& p) { return mysqlx::Value(p.equipamiento_json); },
-              [](PerfilFisico& p, const mysqlx::Value& v) { p.equipamiento_json = v.get<std::string>(); }},
+              [](PerfilFisico& p, const mysqlx::Value& v) { p.equipamiento_json = formaia::orm::safe_get_string(v); }},
         };
     }
 };

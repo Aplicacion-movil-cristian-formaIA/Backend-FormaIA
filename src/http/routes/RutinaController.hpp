@@ -68,6 +68,19 @@ inline void registrarRutasRutina(Router& router, db::ConnectionPool& pool) {
             nlohmann::json out = {{"rutina_id", rutinas.front().id}};
             res.body() = out.dump();
         });
+
+    router.add(bhttp::verb::get, "/api/rutinas/activa/{usuario_id}",
+        [&pool](HttpContext& ctx, bhttp::response<bhttp::string_body>& res) {
+            orm::Repository<Rutina> repoRutina(pool, Rutina::tabla(), Rutina::columnas());
+            auto rutinas = repoRutina.buscarTodosPor("usuario_id = :v1 AND activa = 1", ctx.params[0]);
+            if (rutinas.empty()) {
+                res.result(bhttp::status::not_found);
+                res.body() = R"({"error":"No hay rutina activa"})";
+                return;
+            }
+            nlohmann::json out = {{"rutina_id", rutinas.front().id}};
+            res.body() = out.dump();
+        });
 }
 
 } // namespace formaia::http::routes

@@ -38,6 +38,16 @@ private:
         orm::Repository<Ejercicio> repoEjercicio(pool_, Ejercicio::tabla(), Ejercicio::columnas());
         orm::Repository<SolicitudIA> repoSolicitud(pool_, SolicitudIA::tabla(), SolicitudIA::columnas());
 
+        // Desactivar rutinas anteriores para evitar uq_rutina_activa_por_usuario
+        try {
+            auto conn = pool_.acquire();
+            conn->sql("UPDATE rutina SET activa = false WHERE usuario_id = ?")
+                .bind(evento.usuario_id)
+                .execute();
+        } catch (const std::exception& e) {
+            utils::Logger::error(std::string("Error desactivando rutinas: ") + e.what());
+        }
+
         Rutina rutina;
         rutina.id = utils::newUuid();
         rutina.usuario_id = evento.usuario_id;

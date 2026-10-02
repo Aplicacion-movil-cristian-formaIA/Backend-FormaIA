@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <ctime>
 #include "config/Config.hpp"
 #include "db/Database.hpp"
 #include "domain/entities/PerfilFisico.hpp"
@@ -45,13 +46,75 @@ inline void registrarRutasUsuario(Router& router,
             u.password_hash = security::PasswordHasher::hash(password);
             u.proveedor_auth = "email";
             u.fecha_nacimiento_cifrada_b64 = crypto.cifrar(fechaNacimiento);
+            
+            // Asignar fecha actual simulando que acaba de aceptar
+            time_t now = time(nullptr);
+            char buf[20];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
+            u.acepto_terminos_en = buf;
 
-            orm::Repository<Usuario> repo(pool, Usuario::tabla(), Usuario::columnas());
-            repo.insertar(u);
+            try {
+                orm::Repository<Usuario> repo(pool, Usuario::tabla(), Usuario::columnas());
+                repo.insertar(u);
+                nlohmann::json out = {{"id", u.id}, {"email", emailMin}};
+                res.result(bhttp::status::created);
+                res.body() = out.dump();
+            } catch (const std::exception& e) {
+                // Si el correo ya existe, da error de llave duplicada
+                std::string errStr = e.what();
+                if (errStr.find("Duplicate entry") != std::string::npos) {
+                    res.result(bhttp::status::conflict);
+                    res.body() = R"({"error":"El correo ya está registrado. Por favor, inicia sesión."})";
+                } else {
+                    res.result(bhttp::status::internal_server_error);
+                    res.body() = R"({"error":"Error interno al registrar usuario"})";
+                }
+            }
+        });
 
-            nlohmann::json out = {{"id", u.id}, {"email", emailMin}};
-            res.result(bhttp::status::created);
-            res.body() = out.dump();
+    // Endpoint provisional para INICIAR SESIÓN (HU-01)
+    router.add(bhttp::verb::post, "/api/login",
+        [&pool, &cfg](HttpContext& ctx, bhttp::response<bhttp::string_body>& res) {
+            std::string email = ctx.body.value("email", "");
+            std::string password = ctx.body.value("password", "");
+
+            if (email.empty() || password.empty()) {
+                res.result(bhttp::status::bad_request);
+                res.body() = R"({"error":"email y password son obligatorios"})";
+                return;
+            }
+
+            std::string emailMin = email;
+            std::transform(emailMin.begin(), emailMin.end(), emailMin.begin(), ::tolower);
+            std::string emailIdx = security::Crypto::hmacIndice(emailMin, cfg.field_encryption_key_base64);
+
+            try {
+                auto conn = pool.acquire();
+                auto result = conn->sql("SELECT id, password_hash FROM usuario WHERE email_idx = ?")
+                                  .bind(emailIdx).execute();
+                
+                auto row = result.fetchOne();
+                if (!row) {
+                    res.result(bhttp::status::unauthorized);
+                    res.body() = R"({"error":"Credenciales incorrectas"})";
+                    return;
+                }
+
+                std::string userId = static_cast<std::string>(row[0]);
+                std::string dbHash = row[1].isNull() ? "" : static_cast<std::string>(row[1]);
+
+                if (security::PasswordHasher::verificar(password, dbHash)) {
+                    nlohmann::json out = {{"id", userId}, {"email", emailMin}};
+                    res.result(bhttp::status::ok);
+                    res.body() = out.dump();
+                } else {
+                    res.result(bhttp::status::unauthorized);
+                    res.body() = R"({"error":"Credenciales incorrectas"})";
+                }
+            } catch (const std::exception& e) {
+                res.result(bhttp::status::internal_server_error);
+                res.body() = R"({"error":"Error interno en el login"})";
+            }
         });
 
     router.add(bhttp::verb::post, "/api/usuarios/{id}/perfil",
@@ -72,13 +135,59 @@ inline void registrarRutasUsuario(Router& router,
             p.peso_kg_cifrada_b64 = crypto.cifrar(std::to_string(peso));
 
             orm::Repository<PerfilFisico> repo(pool, PerfilFisico::tabla(), PerfilFisico::columnas());
-            // Nota: para simplificar el ejemplo se usa insertar(); en un
-            // registro real conviene "insertar si no existe, si no
-            // actualizar" (UPSERT), ya que usuario_id es la clave primaria.
-            repo.insertar(p);
+            auto existe = repo.buscarPorId(usuarioId);
+            try {
+                if (existe) {
+                    repo.actualizar(p, usuarioId);
+                } else {
+                    repo.insertar(p);
+                }
+            } catch (const std::exception& e) {
+                res.result(bhttp::status::internal_server_error);
+                res.body() = "{\"error\":\"" + std::string(e.what()) + "\"}";
+                return;
+            }
 
             res.result(bhttp::status::ok);
             res.body() = R"({"ok":true})";
+        });
+
+    router.add(bhttp::verb::get, "/api/usuarios/{id}/perfil",
+        [&pool, &crypto](HttpContext& ctx, bhttp::response<bhttp::string_body>& res) {
+            std::string usuarioId = ctx.params[0];
+            orm::Repository<PerfilFisico> repo(pool, PerfilFisico::tabla(), PerfilFisico::columnas());
+            auto perfil = repo.buscarPorId(usuarioId);
+            if (!perfil) {
+                res.result(bhttp::status::not_found);
+                res.body() = R"({"error":"Perfil no encontrado"})";
+                return;
+            }
+            
+            nlohmann::json out;
+            out["usuario_id"] = perfil->usuario_id;
+            out["sexo"] = perfil->sexo;
+            out["nivel"] = perfil->nivel;
+            out["dias_semana"] = perfil->dias_semana;
+            out["minutos_sesion"] = perfil->minutos_sesion;
+            try {
+                out["equipamiento"] = nlohmann::json::parse(perfil->equipamiento_json);
+            } catch(...) {
+                out["equipamiento"] = nlohmann::json::array();
+            }
+            
+            try {
+                std::string est = crypto.descifrar(perfil->estatura_cm_cifrada_b64);
+                std::string pes = crypto.descifrar(perfil->peso_kg_cifrada_b64);
+                out["estatura_cm"] = std::stod(est);
+                out["peso_kg"] = std::stod(pes);
+            } catch(...) {
+                out["estatura_cm"] = 0.0;
+                out["peso_kg"] = 0.0;
+            }
+
+            res.result(bhttp::status::ok);
+            res.set(bhttp::field::content_type, "application/json");
+            res.body() = out.dump();
         });
 }
 

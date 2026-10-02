@@ -116,6 +116,58 @@ public:
                     });
             });
     }
+    // Versión síncrona (bloqueante) para endpoints que requieren respuesta inmediata (Fase 2)
+    std::string chatSync(const std::string& system_prompt, const std::string& user_prompt) {
+        asio::io_context local_io;
+        ssl::context local_ssl_ctx(ssl::context::tlsv12_client);
+        local_ssl_ctx.set_default_verify_paths();
+        local_ssl_ctx.set_verify_mode(ssl::verify_peer);
+
+        tcp::resolver resolver(local_io);
+        beast::ssl_stream<beast::tcp_stream> stream(local_io, local_ssl_ctx);
+
+        if (!SSL_set_tlsext_host_name(stream.native_handle(), cfg_.groq_api_host.c_str())) {
+            throw std::runtime_error("No se pudo configurar SNI para TLS");
+        }
+
+        auto const results = resolver.resolve(cfg_.groq_api_host, "443");
+        beast::get_lowest_layer(stream).connect(results);
+        stream.handshake(ssl::stream_base::client);
+
+        nlohmann::json body = {
+            {"model", cfg_.groq_model},
+            {"temperature", 0.3},
+            {"response_format", {{"type", "json_object"}}},
+            {"messages", nlohmann::json::array({
+                {{"role", "system"}, {"content", system_prompt}},
+                {{"role", "user"}, {"content", user_prompt}}
+            })}
+        };
+
+        http::request<http::string_body> req{http::verb::post, "/openai/v1/chat/completions", 11};
+        req.set(http::field::host, cfg_.groq_api_host);
+        req.set(http::field::authorization, "Bearer " + cfg_.groq_api_key);
+        req.set(http::field::content_type, "application/json");
+        req.set(http::field::user_agent, "formaia-backend/0.1 (+groq)");
+        req.body() = body.dump();
+        req.prepare_payload();
+
+        http::write(stream, req);
+
+        beast::flat_buffer buffer;
+        http::response<http::string_body> res;
+        http::read(stream, buffer, res);
+
+        beast::error_code ec;
+        stream.shutdown(ec);
+
+        if (res.result_int() < 200 || res.result_int() >= 300) {
+            throw std::runtime_error("Groq HTTP " + std::to_string(res.result_int()) + ": " + res.body());
+        }
+
+        auto json = nlohmann::json::parse(res.body());
+        return json["choices"][0]["message"]["content"].get<std::string>();
+    }
 
 private:
     void manejarRespuesta(beast::error_code ec,

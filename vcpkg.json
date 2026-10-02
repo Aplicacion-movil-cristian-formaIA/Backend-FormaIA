@@ -5,9 +5,12 @@
     "boost-asio",
     "boost-beast",
     "boost-uuid",
+    "boost-system",
+    "boost-thread",
     "openssl",
     "nlohmann-json",
     "mysql-connector-cpp",
-    "libsodium"
+    "libsodium",
+    "catch2"
   ]
 }

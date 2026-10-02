@@ -141,7 +141,7 @@ abre la carpeta como proyecto CMake en Visual Studio.
    ./build/formaia_backend
    ```
 
-## Endpoints incluidos (MVP)
+## Endpoints incluidos
 
 | Método | Ruta | Qué hace |
 |---|---|---|
@@ -150,14 +150,26 @@ abre la carpeta como proyecto CMake en Visual Studio.
 | POST | `/api/solicitudes-ia` | Crea la solicitud y dispara el flujo de eventos (RF-06). Responde `202` de inmediato |
 | GET | `/api/solicitudes-ia/{id}` | Consulta el estado (`aclaracion`/`rechazada`/`generada`) — polling |
 | GET | `/api/rutinas/{id}` | Devuelve la rutina generada con sus fases |
-| GET | `/api/rutinas/por-solicitud/{solicitud_id}` | Devuelve el `rutina_id` generado a partir del id de una solicitud (para que el cliente pase de "solicitud" a "rutina" tras el polling) |
+| POST | `/api/sesiones` | Guarda el tracking de entrenamiento, pesos, repeticiones y recalcula el 1RM (RF-29). |
+| POST | `/api/sesiones/{id}/completar` | Finaliza la sesión y guarda el esfuerzo percibido (RPE) del usuario (RF-27). |
+| POST | `/api/ia/alternativas` | Devuelve variaciones de un ejercicio mediante IA. |
+| POST | `/api/ia/adaptar-sesion` | Adapta toda una sesión de entrenamiento según un motivo ("poco tiempo", etc.) con IA en vivo (RF-28). |
 
-**No incluidos en este MVP** (quedan como siguiente paso, siguiendo el mismo
-patrón arquitectónico): login/JWT, sesión guiada de entrenamiento, registro
-de series, progreso/mediciones, notificaciones push, panel admin, y el
-endpoint de "ajustar rutina en lenguaje natural" (RF-12).
+## Compilar y Probar con Docker Compose
 
-## Ejemplo de flujo completo (curl)
+La forma más directa y segura de correr todo el entorno (MySQL + Backend + Pruebas) es usar Docker Compose:
+
+```bash
+# Levantar la base de datos MySQL y la API en el puerto 8080
+docker compose up -d
+
+# Para correr las pruebas unitarias y de integración (Catch2)
+docker compose run backend /build/tests/formaia_backend_tests
+```
+
+El backend corre en `http://localhost:8080`. Asegúrate de poner tus variables en `.env` (Groq API Key, Base64 Crypto Key, etc.).
+
+## Ejemplo de flujo de IA (curl)
 
 ```bash
 # 1) Registro
@@ -176,6 +188,8 @@ curl -X POST localhost:8080/api/solicitudes-ia -d '{
   "texto":"Quiero bajar de peso y verme como Kirito, tengo 4 dias a la semana"}'
 # -> 202 { "id": "<solicitud_id>", "estado": "procesando", ... }
 
-# 4) Consultar el resultado (repetir hasta que estado = "generada")
-curl localhost:8080/api/solicitudes-ia/<solicitud_id>
+# 4) Adaptar sesión en vivo
+curl -X POST localhost:8080/api/ia/adaptar-sesion -d '{
+  "ejercicios":["Press de Banca", "Flexiones"],
+  "motivo":"tengo el hombro lastimado hoy"}'
 ```

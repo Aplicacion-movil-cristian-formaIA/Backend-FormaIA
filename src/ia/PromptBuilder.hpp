@@ -10,8 +10,8 @@ namespace formaia::ia {
 // determinística (RNF-07)-; el modelo solo interpreta lenguaje natural.
 class PromptBuilder {
 public:
-    static std::string sistemaInterpretacionMeta() {
-        return R"PROMPT(
+    static std::string sistemaInterpretacionMeta(const std::string& perfilFisicoJson = "") {
+        std::string base = R"PROMPT(
 Eres el motor de interpretacion de FormaIA, una app de rutinas de ejercicio.
 Tu unica tarea es leer el mensaje del usuario y devolver un JSON con este
 esquema exacto, sin texto adicional fuera del JSON:
@@ -42,6 +42,11 @@ Reglas importantes:
   los demas campos de referente en blanco.
 - Responde EXCLUSIVAMENTE con el JSON. No agregues explicaciones.
 )PROMPT";
+        if (!perfilFisicoJson.empty()) {
+            base += "\nAdemas, el usuario tiene este perfil actual: " + perfilFisicoJson;
+            base += "\nUsa sus 'dias_semana' como default en 'dias_disponibles' si el prompt no lo especifica.";
+        }
+        return base;
     }
 };
 

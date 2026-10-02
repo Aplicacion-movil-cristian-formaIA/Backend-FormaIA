@@ -35,9 +35,10 @@ private:
         auto usuario_id = evento.usuario_id;
         auto correlacion_id = evento.correlacion_id;
         auto texto = evento.texto_usuario;
+        auto perfilJson = evento.perfil_fisico_json;
 
         groq_->chatAsync(
-            PromptBuilder::sistemaInterpretacionMeta(),
+            PromptBuilder::sistemaInterpretacionMeta(perfilJson),
             texto,
             [this, solicitud_id, usuario_id, correlacion_id](bool exito, const std::string& error, nlohmann::json json) {
                 domain::events::ReferenteInterpretado out;

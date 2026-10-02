@@ -1,6 +1,7 @@
 #pragma once
 #include "core/EventBus.hpp"
 #include "db/Database.hpp"
+#include "domain/entities/PerfilFisico.hpp"
 #include "domain/entities/SolicitudIA.hpp"
 #include "domain/events/DomainEvents.hpp"
 #include "http/Router.hpp"
@@ -53,6 +54,23 @@ inline void registrarRutasSolicitud(Router& router,
             evento.usuario_id = usuarioId;
             evento.texto_usuario = texto; // en claro solo dentro del proceso, nunca se persiste así
             evento.correlacion_id = s.id;
+
+            // Extraer PerfilFisico para que la IA se adapte al usuario
+            orm::Repository<formaia::domain::entities::PerfilFisico> repoP(pool, formaia::domain::entities::PerfilFisico::tabla(), formaia::domain::entities::PerfilFisico::columnas());
+            auto perfil = repoP.buscarPorId(usuarioId);
+            if (perfil) {
+                nlohmann::json pj = {
+                    {"sexo", perfil->sexo},
+                    {"nivel", perfil->nivel},
+                    {"dias_semana", perfil->dias_semana},
+                    {"minutos_sesion", perfil->minutos_sesion}
+                };
+                try {
+                    pj["equipamiento"] = nlohmann::json::parse(perfil->equipamiento_json);
+                } catch(...) {}
+                evento.perfil_fisico_json = pj.dump();
+            }
+
             bus.publish(evento); // <-- publica y retorna al instante, no espera a la IA
 
             nlohmann::json out = {

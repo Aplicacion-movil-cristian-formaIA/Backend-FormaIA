@@ -12,12 +12,17 @@
 #include "http/routes/RutinaController.hpp"
 #include "http/routes/SolicitudController.hpp"
 #include "http/routes/UsuarioController.hpp"
+#include "http/routes/EjecucionController.hpp"
+#include "http/routes/AlternativasController.hpp"
+#include "http/routes/EvolucionController.hpp"
+#include "http/routes/SwaggerController.hpp"
 #include "ia/GroqClient.hpp"
 #include "ia/IAOrchestratorHandler.hpp"
 #include "ia/MetaSeguridadHandler.hpp"
 #include "ia/SolicitudEstadoHandler.hpp"
 #include "notificaciones/NotificationHandler.hpp"
 #include "rutinas/PersistenceHandler.hpp"
+#include "rutinas/ProgressionHandler.hpp"
 #include "rutinas/RutinaBuilderHandler.hpp"
 #include "security/Crypto.hpp"
 #include "utils/Logger.hpp"
@@ -62,6 +67,7 @@ int main() {
     ia::SolicitudEstadoHandler solicitudEstado(bus, pool);            // ReferenteInterpretado / MetaRechazada -> actualiza fila
     ia::MetaSeguridadHandler metaSeguridad(bus, pool, crypto);        // ReferenteInterpretado  -> MetaValidada | MetaRechazada
     rutinas::RutinaBuilderHandler rutinaBuilder(bus);                 // MetaValidada           -> RutinaGenerada
+    rutinas::ProgressionHandler progression(bus, pool);               // SesionCompletada       -> UPDATE db
     rutinas::PersistenceHandler persistence(bus, pool);                // RutinaGenerada         -> RutinaPersistida
     notificaciones::NotificationHandler notifications(bus);            // RutinaPersistida / MetaRechazada -> notifica
 
@@ -72,6 +78,10 @@ int main() {
     http::routes::registrarRutasUsuario(router, pool, crypto, cfg);
     http::routes::registrarRutasSolicitud(router, bus, pool, crypto);
     http::routes::registrarRutasRutina(router, pool);
+    http::routes::registrarRutasEjecucion(router, pool);
+    http::routes::registrarRutasAlternativas(router, cfg);
+    http::routes::registrarRutasEvolucion(router, bus, cfg);
+    http::routes::registrarRutasSwagger(router);
 
     auto server = std::make_shared<http::HttpServer>(io, cfg.http_host,
                                                        static_cast<unsigned short>(cfg.http_port),

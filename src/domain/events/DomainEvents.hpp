@@ -31,6 +31,7 @@ struct SolicitudIACreada {
     std::string usuario_id;
     std::string texto_usuario;      // Prompt original, tal como lo escribió
     std::string correlacion_id;     // Para seguir el flujo completo en logs
+    std::string perfil_fisico_json; // Contexto extra para que la IA se adapte al usuario
 };
 
 // Se publica cuando la IA (Groq) detectó y "buscó" un referente/personaje
@@ -122,6 +123,13 @@ struct RutinaPersistida {
     std::string usuario_id;
     std::string solicitud_id;
     std::string correlacion_id;
+};
+
+// Se publica cuando el usuario termina una sesión de entrenamiento (RPE feedback)
+struct SesionCompletada {
+    std::string sesion_id;
+    std::string usuario_id;
+    int rpe; // Rating of Perceived Exertion (1 a 10)
 };
 
 } // namespace formaia::domain::events

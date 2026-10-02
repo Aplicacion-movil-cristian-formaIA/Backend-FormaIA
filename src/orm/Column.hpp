@@ -25,7 +25,20 @@ namespace formaia::orm {
 // Column<T> representa una columna de la tabla mapeada a un campo de la
 // entidad T. `set` guarda el valor leído de MySQL en el objeto C++;
 // `get` construye el valor de MySQL a partir del objeto C++.
+
+inline std::string safe_get_string(const mysqlx::Value& v) {
+    if (v.isNull()) return "";
+    try { return v.get<std::string>(); }
+    catch (...) {
+        try {
+            auto b = v.get<mysqlx::bytes>();
+            return std::string(reinterpret_cast<const char*>(b.begin()), b.length());
+        } catch (...) { return ""; }
+    }
+}
+
 template <typename T>
+
 struct Column {
     std::string nombre;
     bool esClavePrimaria = false;

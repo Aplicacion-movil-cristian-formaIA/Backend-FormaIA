@@ -77,7 +77,7 @@ private:
                     res->keep_alive(false);
                     res->prepare_payload();
                     beast_http::async_write(*socket, *res,
-                        [socket](beast::error_code, std::size_t) {
+                        [socket, res](beast::error_code, std::size_t) {
                             beast::error_code ignore;
                             socket->shutdown(tcp::socket::shutdown_send, ignore);
                         });
@@ -93,7 +93,7 @@ private:
                 res->prepare_payload();
 
                 beast_http::async_write(*socket, *res,
-                    [socket](beast::error_code, std::size_t) {
+                    [socket, res](beast::error_code, std::size_t) {
                         beast::error_code ignore;
                         socket->shutdown(tcp::socket::shutdown_send, ignore);
                     });
